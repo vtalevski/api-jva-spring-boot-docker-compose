@@ -1,0 +1,72 @@
+version: '3'
+services:
+  postgresql_container:
+    image: postgres
+    container_name: postgresql_container
+    networks:
+      api-jva-spring-boot-docker-compose_network:
+        ipv4_address: 192.168.16.2
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgresql
+      POSTGRES_PASSWORD: postgresql
+      POSTGRES_DB: postgresql_db
+    volumes:
+      - postgresql_volume:/var/lib/postgresql/data
+
+  pgadmin_container:
+    depends_on:
+      - postgresql_container
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    networks:
+      api-jva-spring-boot-docker-compose_network:
+        ipv4_address: 192.168.16.3
+    ports:
+      - 65535:65535
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin
+      PGADMIN_DEFAULT_PASSWORD: pgadmin
+      PGADMIN_LISTEN_PORT: 65535
+
+  api-jva-spring-boot-docker-compose-called-module:
+    depends_on:
+      - pgadmin_container
+    build: ./called_module
+    image: api-jva-spring-boot-docker-compose-called-module_image
+    container_name: api-jva-spring-boot-docker-compose-called-module_container
+    networks:
+      api-jva-spring-boot-docker-compose_network:
+        ipv4_address: 192.168.16.4
+    ports:
+      - 8081:8081
+    environment:
+      spring.datasource.url: jdbc:postgresql://192.168.16.2:5432/postgresql_db
+    links:
+      - postgresql_container:postgresql_link
+
+  api-jva-spring-boot-docker-compose-caller-module:
+    depends_on:
+      - api-jva-spring-boot-docker-compose-called-module
+    build: ./caller_module
+    image: api-jva-spring-boot-docker-compose-caller-module_image
+    container_name: api-jva-spring-boot-docker-compose-caller-module_container
+    networks:
+      api-jva-spring-boot-docker-compose_network:
+        ipv4_address: 192.168.16.5
+    ports:
+      - 8080:8080
+    environment:
+      called_api.uri: http://192.168.16.4:8081/called
+
+networks:
+  api-jva-spring-boot-docker-compose_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.16.0/24
+
+volumes:
+  postgresql_volume:
